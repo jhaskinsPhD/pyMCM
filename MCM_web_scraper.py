@@ -31,7 +31,7 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
                 species. Note: This will require saving these images to your computer.
                 which can take up a considerable amount of space. Default is False. 
                 
-    filename - (optional) - Name of the .csv and .html files generated that 
+    filename - (optional) - Name of the .excel and .html files generated that 
                contain the scraped info. Do NOT include the file extensions! 
     
     savepath - (optional) Where you'd like to save the output .csv, .html and 
@@ -47,11 +47,10 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
     
     (1) Function returns a pandas dataframe with all the saved data. 
     
-    (2) A utf-8 encoded, Tab Delimited** file  saved at: savepath+filename+'.csv', 
+    (2) A exvel workbook file  saved at: savepath+filename+'.xlsx', 
                 which contains all of the scraped data. Easily read into python by 
-                pandas as a dataframe. **NOTE: This file MUST be read in and saved using 
-                a tab delimiter NOT a comma delimiter because InChI strings contain commas 
-                which will mess up the structure!(Use option  sep='\t' when reading/writing).
+                pandas as a dataframe using:
+                    df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
                 
     (3) An HTML document saved at: savepath+filename+'.htm', which contains all the of 
                 the scraped data. A nice way to display all the data scraped AND the 
@@ -192,10 +191,10 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
     if display is True:
         display_MCM_table(savepath+filename+'.htm')
         
-    # Also save the data as a tab delimited file.
-    # NOTE: CANNOT SAVE AS COMMA DELIMITED ( b/c InChI's contain commas!!!!)
-    df.to_csv(savepath+filename+'.csv', sep='\t')
-    print('TXT file saved as: ' + savepath+filename+'.csv')
+    # Also save the data as an excel workbook. 
+    # Read this back in using:  df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
+    df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
+    print('excel file saved as: ' + savepath+filename+'.xlsx')
     
     return df
 
@@ -259,7 +258,7 @@ def get_groups_of_molec(molec, groups:dict, df_in, ind:int):
         inds=list(molec_i.GetSubstructMatches(frag))
         
         # Save the len of this list as the # of functional group matches you found!)
-        df.at[ind,key]=np.int64(len(inds))
+        df.at[ind,key]=np.float64(len(inds))
         
     df.at[ind,'Epoxides'] = Fragments.fr_epoxide(molec_i) # Add Number of epoxide rings 
             
@@ -270,8 +269,8 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
                      save= True, savepath: str = '', filename:str='chem_info', verbose:bool=True):
     """Function that takes a pandas dataframe with a column named 'InChI' or 'SMILES' and 
     uses rdkit to extract its canonical SMILES string, Formula, Molecular weight, and (optionally)
-    how mnay functional groups each compound has. It outputs that info as a dataframe 
-    and saves it to a.csv using a tab delimiter.NOTE: Comma delimited files will NOT work
+    how many functional groups each compound has. It outputs that info as a dataframe 
+    and saves it to a .xlsx NOTE: Comma delimited files will NOT work
     because InChI strings contain commas.
     
     Inputs: 
@@ -308,7 +307,9 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
         df - Pandas dataframe with all the original data and new columns iwth 
              data from the Wang et al., supplement added.
              
-        csv -   Tab delimited csv file with df info saved at savepath+filename.csv 
+        excel -  Excel workbook file with df info saved at savepath+filename.xlsx 
+                 Read this back in using:  
+                    df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
     
     """
     
@@ -354,7 +355,7 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     fwarning=np.full([len(df.index),1], 1, dtype=bool)
     
     for ind in df.index: # Loop over all compounds in the input dataframe. 
-        names= ','.join(list(df.loc[ind,name_col])) # NAme of this compound. 
+        names= ','.join(list(df.loc[ind,name_col])) # Name of this compound. 
         
         # Use each string to make an RDKit molecule object. 
         if case ==1: molec = Chem.inchi.MolFromInchi(df.loc[ind,use], logLevel=None)
@@ -426,15 +427,24 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
         df['Is_RO2']=[1 if df.loc[indy,'RO2s'] >0 or df.loc[indy, 'Acyl_RO2s'] >0  else 0 for indy in df.index]
         df['Is_RO']=[1 if df.loc[indy,'ROs'] >0 or df.loc[indy, 'Acyl_ROs'] >0  else 0 for indy in df.index]
         
-    #Save the output dataframe. 
-    df.to_csv(savepath+filename+'.csv', sep='\t')
-        
-    print('File saved at: ' + savepath + filename+'.csv')
+    # Order the columns nicely. 
+    nm=[c for c in df.columns if 'Name' in c]
+    top=[nm[0], 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
+         'Is_Radical', 'Is_RO2', 'Is_RO']
+    bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
+    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    df=df[order].reindex()
+
+    # Save the output dataframe. You can Read this back in using: 
+    #                            df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
+    df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
+    print('excel file saved as: ' + savepath+filename+'.xlsx')
     
     return df
 
 
-def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='', filename:str='mech_plus_Wang_et_al' ):
+def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
+                        map_dict:dict=dict({}), filename:str='mech_plus_Wang_et_al' ):
     
     """ Function to take the supplemental info from Wang et al,. 2017: 
         
@@ -460,15 +470,22 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='', fi
                     contain the original df and Wang et al info. 
                     Do NOT include the file extension! 
     
-        savepath - (optional) Where you'd like to save the output .csv
+        savepath - (optional) Where you'd like to save the output .xlsx
                    If none is provided, is saved in current directory. 
+                   
+        map_dict - (optional) Dictionary that maps whatever your variable is 
+                    to an MCM name... Keys = your vars, Values= MCM Names. 
+                    Useful to get info if your vars have the same SMILES
+                    but have different names / dif capitolization.
         
         Outputs: 
         --------  
         df - Pandas dataframe with all the original data and new columns iwth 
              data from the Wang et al., supplement added.
              
-        csv -   Tab delimited csv file with df info saved at savepath+filename.csv 
+        excel - Excel workbook file with df info saved at savepath+filename.xlsx 
+                 Read this back in using:  
+                    df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
        """ 
     # Set savepath to the path of the script if none is given.
     if savepath == '' and save is True: savepath = os.path.dirname(os.path.abspath(__file__))
@@ -483,6 +500,13 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='', fi
     
     df=df_in.copy() # Don't modifiy the original dataframe. 
     
+    if len(list(map_dict.keys())) > 0:  # If a name mapping dict is provided, 
+        df['Alias']=df[name_col] # Create a column copy of the names... 
+        for i in range(0,len(df)):  # Map names in alias column. 
+            if df.loc[i,name_col] in list(map_dict.keys()): 
+                df.at[i,'Alias']=map_dict[df.loc[i,name_col]] 
+        name_col='Alias' # Now use the alias column to match things. 
+            
     # Load in CSV Data from Wang et al., 2017 Supplement!
     wang_df = load_data_files(Wangetal=True)
     
@@ -503,19 +527,29 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='', fi
             for c,col in enumerate(cols2copy):  # Copy data from columns we want from Wang et al.,
                 df.at[i, new_names[c]] = wang_df.loc[ind[0], col]
                 
-    # Header in Wang et al., are miss-spelled... fix that here.
-    df['Oxidation_Generation']=df['Oxidation_genration'].copy() 
-    df.drop(columns=['Oxidation_genration'], inplace=True)
+    # Header in Wang et al., are miss-spelled... fix that here. & don't yell at me bro. 
+    df=df.rename(columns={'Oxidation_genration':'Oxidation_Generation', 'AROMATIC':'Is_Aromatic'})
     
-    if save is True:  # Save the files as a csv if asked...
-        df.to_csv(savepath+filename+'.csv', sep='\t')
-        print('File saved at: ' + savepath + filename+'.csv')
-
+    # Drop the Alias column you added if using a map dict. 
+    if len(map_dict)> 0: df.drop(columns='Alias')
+    
+    # Order the columns nicely. 
+    top=[name_col, 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
+         'Is_Radical', 'Is_RO2', 'Is_RO']
+    bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
+    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    df=df[order].reindex()
+    
+    if save is True:  # Save the file if asked...
+        # Read this back in using:  df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
+        df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
+        print('Excel file saved as: ' + savepath+filename+'.xlsx') 
+      
     return df
 
 
 def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='', 
-                      filename:str='mech_plus_precursors'):
+                      filename:str='mech_plus_precursors', prec_dict:dict=dict({})):
     """Function to take a dictionary with precursors as the keys and 
     a list of species they spawn as the values, and assign this list 
     into a column titled "Precursor" for each species in "name_Col" of the 
@@ -535,15 +569,18 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
                     contain the original df and Wang et al info. 
                     Do NOT include the file extension! 
     
-        savepath - (optional) Where you'd like to save the output .csv
+        savepath - (optional) Where you'd like to save the output .xlsx
                    If none is provided, is saved in current directory. 
         
+        prec_dict - (optional) To pass your own dictionary of MCM Names & precursors... 
+                               Keys are MCM Names, Values are a list of Precursors. 
         Outputs: 
         --------  
         df - Pandas dataframe with all the original data and info about which precursor all the 
              different species come from.
              
-        csv -   Tab delimited csv file with df info saved at savepath+filename.csv 
+        excel -   Excel worbook file file with df info saved at savepath+filename.xlsx 
+        
        """ 
     
     # Set savepath to the path of the script if none is given.
@@ -560,16 +597,25 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
     df=df_in.copy() # Dont' modify the original. 
     
     # Load dictionary that has the precursor information in it (MCM Names are keys!)
-    prec_dict=load_data_files(precursors=True)
+    if len(prec_dict.keys())==0: prec_dict=load_data_files(precursors=True)
    
     df=df_in.copy() 
-    df['Precursor']=['']*len(df)
+    df['Precursors']=['']*len(df)
     for ind, sp in enumerate(df[name_col]): # Loop over all species in the MCM... 
         prec_i=prec_dict[sp]
-        df.at[ind,'Precursor']=prec_i
-    if save is True: 
-        df.to_csv(savepath+filename+'.csv', sep='\t')
-        print('File saved at: ' + savepath + filename+'.csv')      
+        df.at[ind,'Precursors']=prec_i
+    
+    # Order the columns nicely. 
+    nm=[c for c in df.columns if 'Name' in c]
+    top=[nm[0], 'Description', 'Formula','Molecular_Weight', 'Precursors','SMILES','Canonical_SMILES', 'InChI', 
+         'Is_Radical', 'Is_RO2', 'Is_RO']
+    bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
+    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    df=df[order].reindex()
+    
+    if save is True:  #Save the output dataframe. 
+        df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
+        print('Excel file saved as: ' + savepath+filename+'.xlsx') 
       
     return df 
 
@@ -578,16 +624,15 @@ def load_data_files(groups=False, precursors=False, species=False, Wangetal=Fals
     """Function to load data needed for these functions to work."""
     path=os.path.dirname(__file__)
     if groups is True: 
-        df_in=pd.read_excel(path+'/Data/Functional_Group_SMARTs.xlsx')
-        gpp= df2dict(df_in)
+        gpp= dict2df(savepath=path, filename='/Data/Functional_Group_SMARTs', parse_chars=False, reverse=True)
         return gpp
         
     if precursors is True  or species is True: 
-        df_in=pd.read_excel(path+'/Data/MCM_precursors.xlsx', index_col=0)
         if precursors is True:
-            precs= df2dict(df_in,split_on_comma=True)
+            precs= dict2df(savepath=path, filename='/Data/MCM_precursors', reverse=True,split_on_comma=True)
             return precs 
         else:
+            df_in=pd.read_excel(path+'/Data/MCM_precursors.xlsx', engine='openpyxl',index_col=0)
             species=list(df_in['MCM_Name'])
             species.sort()
             return species
@@ -597,32 +642,56 @@ def load_data_files(groups=False, precursors=False, species=False, Wangetal=Fals
         return df
   
     
-def df2dict(df_in, savepath='', filename='', split_on_comma=False):
-    """Function to take a df from an excel file and convert to a dict."""
-    if len(df_in.columns)<2: 
-        sys.exit('Error in df2dict(): Function only works on dfs with at least 2 columns.')
-                  
-    dict_out=dict({})
-    key_col=df_in.columns[0]; val_col=df_in.columns[1]
-    for i in df_in.index:
-        key=df_in.loc[i,key_col]
-        if type(key) == str: 
-            for bad in [' ', "'",'[',']']: key=key.replace(bad, '')
+def dict2df(dat_in=dict({}), full_file='', savepath='', filename='', reverse:bool=False, 
+            split_on_comma=False, parse_chars=False):
+    """Function to take a dictionary and save it as a df in an xlsx file. 
+    Easy way to save lists of varying lens in a easy to read excel. OR do vice-versa!"""
+    
+    # Set savepath to the path of the script if none is given & no abs path is given
+    if full_file=='':
+        if savepath == '': savepath = os.path.dirname(os.path.abspath(__file__))
+        full_file=savepath+filename
+    if reverse ==False:  # Turn dict into a df with 2 cols: Key and Value.
+        df=pd.DataFrame(); df['Key']=[' ']*len(dat_in); df['Value']= [' ']*len(dat_in)
+        ind=0
+        for key in dat_in: 
+            listy=dat_in[key]
+            listy.sort()
+            df.at[ind,'Key']= key
+            df.at[ind,'Value']=listy
+            ind=ind+1
+            
+        df.to_excel(full_file+'.xlsx', engine="openpyxl",)
+        print("Data Saved at: {}".format(full_file+'.xlsx'))                                            
         
-        value= df_in.loc[i,val_col]
-        if type(value) == str: 
-            for bad in [' ', "'"]: value=value.replace(bad, '')
-            if split_on_comma is True: 
-                for bad in ['[',']']: value=value.replace(bad, '')
-
+        return df 
+    else:  # Turn df into a Dict! 
+        df_in=pd.read_excel(full_file+'.xlsx', engine="openpyxl", index_col= 0)
+        
+        if len(df_in.columns)<2: 
+            sys.exit('Error in dict2df(): Function only works on dfs with at least 2 columns.')
+        
+        dict_out=dict({}); key_col=df_in.columns[0]; val_col=df_in.columns[1]
+        for i in df_in.index:
+            #Get "key" and "value", and strip spaces... 
+            key=str(df_in.loc[i,key_col]); key=key.replace(' ', '')
+            value= df_in.loc[i,val_col];  
+            if type(value) ==str: value=value.replace(' ', '')
+            
+            # Remove weird characters if asked... 
+            if parse_chars is True: 
+                for bad in ["'",'[',']']:   
+                    if type(value) ==str: value=value.replace(bad, '')
+                    key=key.replace(bad, '')
+            
+            # Split value string on commas if asked... 
+            if split_on_comma is True and type(value)==str: 
                 listy=value.split(',') # Turn into list
                 listy.sort()
             else:
                 listy=value
-        else: 
-            listy='None'
-    
-        dict_out[key]=listy 
         
-    return dict_out
+            dict_out[key]=listy 
+            
+        return dict_out
 

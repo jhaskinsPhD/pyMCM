@@ -12,7 +12,7 @@ from MCM_web_scraper import *
 pth = 'C:/Users/Jhask/OneDrive/Desktop/fldr/'
 
 # A short list of species we want info about... 
-species_list=['APINENE', 'C5H8', 'BPINENE', 'BCARY']
+species_list=['APINENE', 'C5H8',  'C59O', 'MPAN']
 
 # Scrape info about all the species in our mechanism from the MCM website & NIST.
 MCM_df0= MCM_data_scraper(species_list, filename='example_scrape',
