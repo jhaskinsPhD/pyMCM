@@ -14,7 +14,7 @@ Python 3
 
 ### Scraping Data 
 1.  Scrape data from the [MCM webpage](http://mcm.york.ac.uk/) for any given list of species or to scrape data about *all* of the compounds in the MCM. 
-          Given just a list of MCM Names you'd like to get data about, running `MCM_data_scraper()`  will pull down everything from each compound's formula, molecular weight, SMILES, InCHI, synonyms, or even the image of that compound. 
+          Given just a list of MCM Names you'd like to get data about, running `MCM_data_scraper()`  will pull down everything from each compound's formula, molecular weight, SMILES, InChI, synonyms, or even the image of that compound. 
           
 ```python 
 import pandas as pd 
@@ -33,11 +33,11 @@ MCM_df0= MCM_data_scraper(species_list, filename='example_scrape',
 ```
                             
 ### Viewing Data 
-2. The scraper saves your data as a **TAB DELIMITED** csv (which is essiential because InChI codes have commas in them!) and as an html object. Saving it as an HTML object allows you to basically open all the data you scraped as a nice little table in your web browser (which will let you see the images you scraped!)
+2. The scraper saves your data as a .xlsx excel files (Its easy enough to convert in other formats with pandas, but note that if you do choose to change its output save formation, you must choose a tab delimiter,  because InChI codes have commas in them!) and as an html object. Saving it as an HTML object allows you to basically open all the data you scraped as a nice little table in your web browser (which will let you see the images you scraped!)
 
 ```python
 # Restore that csv data, & make sure to tell Pandas that it's tab delimited! 
-df = pd.read_csv(pth+'example_scrape.csv', sep='\t', index_col=0) 
+df = pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
 
 # View the images you scraped using the html doc.
 display_MCM_table(pth+'example_scrape.html')
@@ -45,7 +45,7 @@ display_MCM_table(pth+'example_scrape.html')
 
 ### Using RDKit to get more information! 
 
-3. Query your MCM dataset using the [rdkit](https://github.com/rdkit/rdkit) chemical library. Simply run `query_rdkit_info()` in order to get the # of different functional groups in different MCM compounds. Functional groups are currently matched using a set of defined SMARTS fragments in the `/Data/` folder. 
+3. Query your MCM dataset using the [rdkit](https://github.com/rdkit/rdkit) chemical library. Simply run `query_rdkit_info()` in order to get the # of different functional groups in different MCM compounds. Functional groups are currently matched using a set of defined SMARTS fragments in the `/Data/` folder. Please open that up for more info!! (These tend to be atmopsheric science relevant, obviously).
 
 ```python
 # Pass the scraped dataframe to rdkit and get more info about the molecule from the SMILES strings  
@@ -67,5 +67,5 @@ MCM_df3= assign_precursors(MCM_df2, 'MCM_Name',  savepath=pth,
                         filename='example_scrape_plus') 
 
 ```
-**NOTE:** All data in Data files are for MCM v 3.3.1 as of 10/22/2022. 
+**NOTE:** All data in Data files are for MCM v 3.3.1 as of 10/29/2021. 
 
