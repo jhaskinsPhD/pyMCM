@@ -1,7 +1,7 @@
 # pyMCM
 
 ### About 
-pyMCM is a set of tools that allows you to rip data from the MCM website into python as a pandas dataframe, query it with RDKit, and add information from published papers about its physical properties. What results is a tool that allows you to get a bunch of info on MCM compounds in an easy to access way in python.  See script (examples.py for how you might use this!)
+pyMCM is a set of tools that allows you to rip data from the MCM website into python as a pandas dataframe, query it with RDKit, and add information from published papers about its physical properties. What results is a tool that allows you to get a bunch of info on MCM compounds in an easy to access way in python- for example, like finding all MCM species that are PAN or all that have a tertiary nitrate etc.   See script (examples.py for other ways that you might use this!)
   
 ### Dependencies 
 Python 3    
