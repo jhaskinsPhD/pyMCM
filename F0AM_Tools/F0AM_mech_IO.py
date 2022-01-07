@@ -60,7 +60,7 @@ def sort_rxn_indv(rct_cmpds,prd_cmpds,rct_ylds,prd_ylds):
 
                 
 def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
-                   sort_rxn_i=False, sort_rxn_list=False):
+                   sort_rxn_i=False, sort_rxn_list=False, return_comments=False):
     """Function to read in a F0AM mechanism .m file...and return things like 
     the "Species List", the "RO2" list, the reactions, the rates (k), the gstr and the f 
     that are on each line... allows you to later parse these as lists  in python 
@@ -111,10 +111,10 @@ def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
         reader = csv.reader(f, delimiter=' ')
         
         # Initialize vars we fill in reading the file. 
-        n_species=np.inf; n_rxns=np.inf  # Hold # of species and # of rxns 
+        n_species=np.inf; n_rxns=np.inf;  # Hold # of species and # of rxns 
         ln_num = 0; knext=-99; gnext=-99; fnext=-99; in_species_list=False;  in_ro2_list=False
-        species=list(); ro2=list();  rxn=list(); k=list(); g=list(); f=list(); comments=list()
-         
+        species=[]; ro2=[];  rxn=[]; k=[]; g=[]; f=[]; comments=[];
+        insert_cmt=[]; insert_ind=[]; pass_go=False  
         for row in reader:
             line0= " ".join(row)  # read in the .m file line by line, keep original line! 
             line=line0 # and keep a copy to mod later.
@@ -122,29 +122,29 @@ def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
             comment_line=False 
             if len(line)>0:  # Decide if it's a commented out line or not. (MATLAB Comments = "%") 
                 if line[0]=='%': comment_line=True 
-                
-            if comment_line is True and 'species' not in line and 'reaction' not in line and ln_num<10: 
-                    comments.append(line)
-                    
-            if comment_line is True and '#' in line: 
-                    col_name, sep, after = line.rpartition("=")
-                    if 'species' in line: n_species=int(after.strip())  # Save # of species..
-                    if 'reaction' in line: n_rxns=int(after.strip())  # Save # of reactions.
-
-            if comment_line is False: # Don't parse commented out lines for mech data.  
             
+            # Decide if its a comment at the top of the file or not. 
+            if comment_line is True and 'species' not in line and 'reaction' not in line and '#' not in line and pass_go is False: 
+                comments.append(line)
+            
+            # Sometimes top level comments have # of species and # of rxns... 
+            if comment_line is True and '#' in line and pass_go is False: 
+                col_name, sep, after = line.rpartition("=")
+                if 'species' in line: n_species=int(after.strip())  # Save # of species..
+                if 'reaction' in line: n_rxns=int(after.strip())  # Save # of reactions.
+                
+            if comment_line is False: # Don't parse commented out lines for mech data.  
                 annotations=''
                 if '%' in line: # Line has a comment at the end of it... 
                     line_listy=line.split('%') # Split into data and the annotation.
                     line=line_listy[0];  annotations=line_listy[1]
                     
-                if 'SpeciesToAdd' in line: in_species_list = True # If we're in species list   
+                if 'SpeciesToAdd' in line: in_species_list = True ; pass_go=True# If we're in species list   
                 if 'RO2ToAdd' in line: in_ro2_list = True # If we're in RO2 list 
-    
-                # --------- Populate list of Specie/ RO2s in mechanism.-------------
+                
+                # --------- Populate list of Species/ RO2s in mechanism.-------------
                 # List of things to remove from these lines... 
                 remove=['SpeciesToAdd', 'RO2ToAdd', '{', '=', '}', '...', "'"] 
-                
                 if (in_species_list is True) or (in_ro2_list is True):
                     for item in remove: # Remove things we don't want.
                         if item in line: line =line.replace(item, '').strip()
@@ -160,21 +160,36 @@ def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
                         ro2=ro2+ [v for v in value if v not in ro2]
                 
                 # --------- Populate list of rxns, ks, rcts, and yields in mechanism.-----------
-                if (in_species_list is False)  and (in_ro2_list is False):
+                if (in_species_list is False)  and (in_ro2_list is False):                    
                     line=line.replace(' ', '') # remove any spaces from the line. 
                     
-                    # Append the whole line to our lists of Rnames, K, or Gstr. 
-                    add=' % ' if annotations !='' or tag != '' else ''
-                    add= add+ annotations+' # '+tag  if tag!='' else add+annotations
-                    if 'Rnames' in line: rxn.append(line +add); knext=ln_num+1;
-                    if knext==ln_num :  k.append(line); gnext=ln_num+1
-                    if gnext==ln_num:  g.append(line);  fnext=ln_num+1; 
-                    if fnext==ln_num: f.append(line); 
+                    # Check if this line is just some kind of extra, unexpected 
+                    # line which isn't a comment but doesn't contain mech info. 
+                    if  len(line)>0 and \
+                        'i=i+1;' not in line and \
+                        'Rnames{i}=' not in line and \
+                        'k(:,i)=' not in line and \
+                        'Gstr{i,1}=' not in line and \
+                        '(i)=f' not in line and \
+                        any(['(i)=f' not in strr for strr in line]) \
+                        and pass_go is True:
+                        insert_cmt.append(line0); insert_ind.append(len(f))
+                    else:     
+                        # Append the whole line to our lists of Rnames, K, or Gstr. 
+                        add=' % ' if annotations !='' or tag != '' else ''
+                        add= add+ annotations+' # '+tag  if tag!='' else add+annotations
+                        if 'Rnames' in line: rxn.append(line +add); knext=ln_num+1;
+                        if knext==ln_num :  k.append(line+add); gnext=ln_num+1
+                        if gnext==ln_num:  g.append(line+add);  fnext=ln_num+1; 
+                        if fnext==ln_num: f.append(line+add); 
 
                 # Set exit flags For species, list, ro2 lists only after you 
                 # added the lines to the correct list. 
                 if (in_species_list is True)  and ('};' in line0): in_species_list = False 
                 if (in_ro2_list is True)  and ('};' in line0):  in_ro2_list = False 
+            
+            elif comment_line is True and pass_go is True:  # Found a comment in the middle of the file... 
+                insert_cmt.append(line0); insert_ind.append(len(f))
             
             ln_num=ln_num+1 # Update the line number. 
             
@@ -198,7 +213,7 @@ def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
         cors=False
         rct_cmpds=[]; prd_cmpds=[]; rct_ylds=[]; prd_ylds=[];
         
-                                                   
+    mech_title=' '.join(comments); #Steal comments from orign.
     if cors is True and read_only is False: # Corrections have been made... ask if they want to overwrite the file with them? 
         ow='-1'; 
         while ow not in ['0','1','2']:
@@ -207,14 +222,17 @@ def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, read_only=True,
             if ow=='1': overwrite=False; 
             if ow=='2': overwrite=True; 
         
-            # And write it to the file... 
-            mech_title=' '.join(comments); #Steal comments from orign.
+            # And write it to the file...                
             file= file.replace('.m', '') # remove .m extension
             write_mech_to_file(file, species,ro2,rxn,k,g,f, 
                         mech_title=mech_title, overwrite= overwrite)
-
-    # Return lists of everything we got out of the mechanism.
-    return [n_species, n_rxns, species, ro2, rxn, k, g, f, rct_cmpds, prd_cmpds, rct_ylds, prd_ylds]
+            
+    if return_comments==False: 
+        # Return lists of everything we got out of the mechanism.
+        return [n_species, n_rxns, species, ro2, rxn, k, g, f, rct_cmpds, prd_cmpds, rct_ylds, prd_ylds]
+    else:
+        return [n_species, n_rxns, species, ro2, rxn, k, g, f, rct_cmpds, prd_cmpds, rct_ylds, prd_ylds, mech_title,
+                    insert_cmt, insert_ind]
 
 
 def check_fline(rnames_line, fline_in, f_should_have, f_replaced, f_removed,
@@ -535,7 +553,7 @@ def build_all_from_rxns(rxn_list, f_list=[], g_list=[], k_list=[], map_dict= dic
             new_rx="Rnames{i}='"+rct_half+'='+prd_half+"'"+comments
             
             # Save the species in this line to the bigger list if they're not in it already. 
-            [sp_list.append(sp) for sp in rct_cmpds+ prd_cmpds if sp not in sp_list]
+            [sp_list.append(sp) for sp in rct_cmpds+ prd_cmpds if sp not in sp_list and sp not in['RO2', 'hv']]
             sp_list.sort()
             
             # Now save everything to a list! 
@@ -626,9 +644,33 @@ def check_lens(rxn, k, g, f, error ):
         print('Len (f)= ', len(f))
         return 
 
+
+def list2_MATLAB_cell_str(listy, preface_list:str='list = ', comment=True, return_len=False ):
+    """ Function to take a list and convert it into a single string 
+    that formats whatever is in the list as a MATLAB cell array, seperated by 
+    semicolons, and that has a line break roughly where it should be to
+    display properly in MATLAB. """
+    
+    cmt='%' if comment is True else '' # whether this list should be commented out or not.
+
+    last_len=0; 
+    full_list= cmt+preface_list
+    n_lines=0
+    for val in listy: # Make the full list a string. 
+        com="'; "
+        if val==listy[-1]: com="' }; \n" ; n_lines=n_lines+1
+        full_list=full_list+ "'"+val+com
+        if len(full_list) > last_len+75 and val!=listy[-1]: 
+            full_list=full_list+' ... \n'+cmt; last_len=len(full_list)
+            n_lines=n_lines+1
+    if return_len is False:
+        return full_list
+    else:
+        return full_list, n_lines
+    
     
 def write_mech_to_file(filename, species_list,ro2_list,rxn_list,k_list,g_list,f_list, 
-                       mech_title='', overwrite= False): 
+                       mech_title='', overwrite= False, insert_cmt=[], insert_ind=[]): 
     """ Function to take species lists, ro2 lists, rxn list, k list, g list and f list and 
     write them to a F0AM compliant .m file that can be used in MATALB. 
     
@@ -664,7 +706,7 @@ def write_mech_to_file(filename, species_list,ro2_list,rxn_list,k_list,g_list,f_
         filename=nm[0] 
         ext= '.'+nm[1]
     if (overwrite is False) or (len(ext)==0):  ext='.m' 
-
+    
     n=1; filename0=filename;
     while os.path.isfile(filename+'.m'):
         if overwrite is True:  
@@ -678,81 +720,59 @@ def write_mech_to_file(filename, species_list,ro2_list,rxn_list,k_list,g_list,f_
     # Open the output file and write headers line by line. 
     outF = open(filename+'.m', "w"); write_file= True; ln_num=0;  rct_ct=0
      
-    nlines_for_species= np.ceil(len(species_list)/10); sp_ct=0; end_sp=6000
-    nlines_for_ro2=  np.ceil(len(ro2_list)/10); ro2_ct=0; end_ro2=6000
-    
     check_lens(rxn_list,k_list,g_list,f_list, 'ERROR : Input to write to file does not match lens. ' )
-    while write_file== True: 
-        blank= '' ;   line=blank 
     
-        if ln_num ==0:  line= '% '+ mech_title
+    # Break up comments on %, add line break char for all comments...
+    cmts=mech_title.split('%'); big_title=''; title_lines=len(cmts)
+    for l in cmts[0:]: 
+        big_title=big_title+'%'+l+'\n'
+
+    # Turn species list & RO2 list into a MATLAB formatted  cell array as a single string!
+    sps_lines= list2_MATLAB_cell_str(species_list, preface_list='SpeciesToAdd = {', comment=False)
+    ro2_lines= list2_MATLAB_cell_str(ro2_list, preface_list='RO2ToAdd = {', comment=False)
+
+    while write_file== True: 
+        blank= '' ;   line=blank ; 
+    
+        if ln_num ==0:line= big_title
         if ln_num ==1:  line= '% # of species ='+ str(len(species_list))
         if ln_num ==2:  line= '% # of reactions ='+ str(len(rxn_list))
         if ln_num ==3:  line= blank
-        if ln_num ==4:  line= 'SpeciesToAdd = {...'
+        if ln_num ==4:  line= sps_lines
+        if ln_num ==5:  line= ro2_lines; 
+        if ln_num ==6: line= blank 
+        if ln_num == 7: line= 'AddSpecies' 
+        if ln_num == 8: line= blank
         
-        # Write the species list. 
-        if (ln_num)> 4 and ln_num < (5+ nlines_for_species): 
-            these=  species_list[sp_ct:sp_ct+10]
+        if (ln_num >8) and (rct_ct<= len(rxn_list)): 
+            line=[]
+            if rct_ct in insert_ind: # If you have a comment to insert here... 
+                insertion=[insert_cmt[i]+'\n' for i,ind in enumerate(insert_ind) if ind==rct_ct]
+                for idv,lnn in enumerate(insertion):
+                    if 'if' in lnn: lnn='\n'+lnn
+                    if 'end' in lnn: lnn= lnn+'\n'
+                    if idv==0 and lnn[0]=='%' : lnn= '\n'+lnn 
+                    if idv==len(insertion)-1 and lnn[0]=='%' : lnn= lnn+'\n' 
+                    line.append(lnn) #append the insertion to the line. 
             
-            line= ["'"+str(item)+"';" for item in these] # Format correctly 
-            if ln_num < nlines_for_species+ 4: 
-                line.append('...')
-                sp_ct=sp_ct+10
-            else: 
-                line.append("};")
-                end_sp=ln_num
-                
-            line=''.join(line) # Convert it from a list to a string to write
+            if rct_ct< len(rxn_list): # Append all the info for this rxn. 
+                line.append('i=i+1;\n')
+                line.append(rxn_list[rct_ct]+'\n')
+                line.append(k_list[rct_ct]+'\n')
+                line.append(g_list[rct_ct]+'\n')
+                line.append(f_list[rct_ct]+'\n') if rct_ct+1  not in insert_ind else line.append(f_list[rct_ct])
             
-        # Write the RO2 list. 
-        if (ln_num)> end_sp+1 and ln_num < (end_sp+2+ nlines_for_ro2): 
-            these=  ro2_list[ro2_ct:ro2_ct+10]
-            if ln_num == end_sp+2: line = 'RO2ToAdd={'
-            line= list(line)+["'"+str(item)+"';" for item in these] # Format correctly 
-            if ln_num < end_sp+1+ nlines_for_ro2: 
-                line.append('...')
-            else: 
-                line.append("};")
-                end_ro2=ln_num
-                
-            line=''.join(line) # Convert it from a list to a string to write to the file. 
-            ro2_ct=ro2_ct+10
-            
-        # Commands to add the species... then begin reactions list.
-        if ln_num== end_ro2+2: line= 'AddSpecies' 
-        if ln_num== end_ro2+3: line= blank 
-    
-        begin_rxns= end_ro2+4
-        if (ln_num >= begin_rxns) and (rct_ct< len(rxn_list)): 
-            if (ln_num-begin_rxns)%6  ==0: 
-                line='i=i+1;'
-                
-            if (ln_num-begin_rxns)%6  ==1: 
-                line=rxn_list[rct_ct]
-                
-            if (ln_num-begin_rxns)%6  ==2: # Add a comma back in between the indexes. 
-                line= k_list[rct_ct]
-                
-            if (ln_num-begin_rxns)%6  ==3: # Add a comma back in between the indexes. 
-                line=g_list[rct_ct]
-                
-            if (ln_num-begin_rxns)%6  ==4: 
-                line=f_list[rct_ct]
-                
-            if (ln_num-begin_rxns)%6  ==5: 
-                line=blank
-                rct_ct=rct_ct+1
+            line=''.join(line) # make it a big long char. 
+            rct_ct=rct_ct+1
                 
         outF.write(line)
         outF.write("\n")
         
-        if rct_ct >= len(rxn_list):
-            print('Done')
+        if rct_ct > len(rxn_list):
             break
             write_file=False 
     
-        ln_num=ln_num+1 
+        ln_num=ln_num+1
     
     outF.close() # Close the output file. 
     
@@ -776,9 +796,9 @@ def make_mapping_dict(csv_file):
          """
     
     mapp=pd.read_csv(csv_file)
-    RCIM_dict=({}) # dict to hold RCIM vars --> MCM vars 
-    MCM_dict=({}) # dict to hold MCM vars --> RCIM vars 
-    
+    RCIM_dict=dict({}) # dict to hold RCIM vars --> MCM vars 
+    MCM_dict=dict({}) # dict to hold MCM vars --> RCIM vars 
+    duped=[]; 
     for i,row in mapp.iterrows(): 
         
         # Decide if we're in a grouping or not. denoted with '+' 
@@ -787,16 +807,16 @@ def make_mapping_dict(csv_file):
             mcm_group=[v.replace(' ', '') for v in mcm_group if len(v.replace(' ', '')) >0]
             for cmpd in mcm_group: MCM_dict[cmpd]=row['RCIM_Name']
         elif '+' in row['RCIM_Name']:
-            print('This functionality is not currently included. '+\
-                  'Please map: {} (RCIM) to {} (MCM) yourself.'.format(row['RCIM_Name'], row['MCM_Name']))
+            #print('This functionality is not currently included. '+\
+            #     'Please map: {} (RCIM) to {} (MCM) yourself.'.format(row['RCIM_Name'], row['MCM_Name']))
+            dum=9
         elif row['MCM_Name'] != 'None':     # 1:1 case... Map RCIM --> MCM var.  
             RCIM_dict[row['RCIM_Name']]=row['MCM_Name'].replace(' ', '') 
-            
+
     # Remove anything that isn't actually mapping a var to a new name. 
     [RCIM_dict.pop(item) for item in list(RCIM_dict.keys()) if RCIM_dict[item]== item]
-
+        
     return RCIM_dict, MCM_dict
-
 
 def get_split_add(lists, to_add=None, parse_chars:bool=False): 
     """Function to take two comma delimited strings, and combine them without dupes.
@@ -991,7 +1011,6 @@ def build_full_RCIM_precursors(map_file:str, savepath:str, mcm_prec_only:str, rc
     combo= RCIM_precs_full | MCM_precs_full
         
     # Convert all to dataframes and save as xlsx docs. 
-    print('here')
     RCIM_dfo= dict2df(dat_in=RCIM_precs_full, savepath=savepath+'/RCIM/', filename=rcim_prec_only+'plus_MCM')
     MCM_dfo= dict2df(dat_in=MCM_precs_full, savepath=savepath+'/MCM/', filename=mcm_prec_only+'plus_RCIM')
     combo_dfo= dict2df(dat_in=combo, savepath=savepath+'/python/python_io/', filename='RCIM_MCM_precursors')

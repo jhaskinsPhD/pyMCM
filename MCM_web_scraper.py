@@ -266,7 +266,8 @@ def get_groups_of_molec(molec, groups:dict, df_in, ind:int):
 
 
 def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_groups:bool=False,
-                     save= True, savepath: str = '', filename:str='chem_info', verbose:bool=True):
+                     save= True, savepath: str = '', filename:str='chem_info', verbose:bool=True, 
+                     nm_col:str= 'MCM_Name'):
     """Function that takes a pandas dataframe with a column named 'InChI' or 'SMILES' and 
     uses rdkit to extract its canonical SMILES string, Formula, Molecular weight, and (optionally)
     how many functional groups each compound has. It outputs that info as a dataframe 
@@ -428,11 +429,10 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
         df['Is_RO']=[1 if df.loc[indy,'ROs'] >0 or df.loc[indy, 'Acyl_ROs'] >0  else 0 for indy in df.index]
         
     # Order the columns nicely. 
-    nm=[c for c in df.columns if 'Name' in c]
-    top=[nm[0], 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
+    top=[nm_col, 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
          'Is_Radical', 'Is_RO2', 'Is_RO']
     bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
-    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    order=top+mid+bottom; [order.pop(order.index(c)) for c in order if c not in df.columns]
     df=df[order].reindex()
 
     # Save the output dataframe. You can Read this back in using: 
@@ -537,7 +537,7 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
     top=[name_col, 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
          'Is_Radical', 'Is_RO2', 'Is_RO']
     bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
-    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    order=top+mid+bottom; [order.pop(order.index(c)) for c in order if c not in df.columns]
     df=df[order].reindex()
     
     if save is True:  # Save the file if asked...
@@ -610,7 +610,7 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
     top=[nm[0], 'Description', 'Formula','Molecular_Weight', 'Precursors','SMILES','Canonical_SMILES', 'InChI', 
          'Is_Radical', 'Is_RO2', 'Is_RO']
     bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
-    order=top+mid+bottom; [order.pop(c) for c in order if c not in df.columns]
+    order=top+mid+bottom; [order.pop(order.index(c)) for c in order if c not in df.columns]
     df=df[order].reindex()
     
     if save is True:  #Save the output dataframe. 
