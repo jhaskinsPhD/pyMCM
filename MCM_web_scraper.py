@@ -15,9 +15,11 @@ from bs4 import BeautifulSoup
 from rdkit import Chem
 from rdkit.Chem import  Descriptors, rdMolDescriptors, Fragments
 
+from utils import * 
+
 
 def MCM_data_scraper(species_list, get_image: bool = False, display: bool = False,
-                     filename: str = 'MCM_web_scrape', savepath: str = ''):
+                     filename:str='', savepath: str = ''):
     """Function that takes a list of species, and rips all the info off the 
     MCM  Webpage about that species.(e.g. SMILES, INCHI, etc)...  
     
@@ -32,7 +34,7 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
                 which can take up a considerable amount of space. Default is False. 
                 
     filename - (optional) - Name of the .excel and .html files generated that 
-               contain the scraped info. Do NOT include the file extensions! 
+               contain the scraped info. 
     
     savepath - (optional) Where you'd like to save the output .csv, .html and 
                MCM images. If none is provided, is saved in current directory with 
@@ -47,7 +49,7 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
     
     (1) Function returns a pandas dataframe with all the saved data. 
     
-    (2) A exvel workbook file  saved at: savepath+filename+'.xlsx', 
+    (2) A excel workbook file  saved at: savepath+filename+'.xlsx', 
                 which contains all of the scraped data. Easily read into python by 
                 pandas as a dataframe using:
                     df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
@@ -58,18 +60,24 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
                 
     (4) - Optional a folder at save_path+/"MCM_images/" with .pngs of the MCM molecules 
           scraped from the MCM website. 
+          
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+    
+    Change Log: 
+    ----------
+        10/29/2021    JDH Created 
+        1/18/2022     JDH modded function locations to allow use with F0AM_Tools
     """
     
-    # Set savepath to the path of the script if none is given.
-    if savepath == '':
-        savepath = os.path.dirname(os.path.abspath(__file__))
-        
-    # Set name of .csv and .html files saved
-    if filename == '':
-        filename = 'MCM_web_scrape'
-        
-    if species_list[0].lower()=='all':  
-        species_list=load_data_files(species=True)
+    # Check the file path + file names given. 
+    excel_file= check_filename(filename=filename, default_name='MCM_web_scrape', ext='.xlsx', 
+                   savepath=savepath, overwrite=False, return_full=True)
+    html_file= check_filename(filename=filename, default_name='MCM_web_scrape', ext='.html', 
+                   savepath=savepath, overwrite=False, return_full=True)
+    
+    if species_list[0].lower()=='all':  species_list=load_data_files(species=True)
     
     # Create an empty pandas dataframe with column names of all the info we're gonna scrape.
     df = pd.DataFrame(columns=['MCM_Name', 'Formula', 'Molecular_Weight',
@@ -184,17 +192,17 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
     df_htm = df.to_html(escape=False)
     
     # Write html object to a file
-    df.to_html(open(savepath+filename+'.html', 'w'))  
-    print('HTML file saved as: ' + savepath+filename+'.html')
+    df.to_html(open(html_file, 'w'))  
+    print('HTML file saved as: ' + html_file)
     
     # Option to display the saved info in your webbrowser
     if display is True:
-        display_MCM_table(savepath+filename+'.htm')
+        display_MCM_table(html_file)
         
     # Also save the data as an excel workbook. 
     # Read this back in using:  df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
-    df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
-    print('excel file saved as: ' + savepath+filename+'.xlsx')
+    df.to_excel(excel_file,engine="openpyxl")
+    print('excel file saved as: ' + excel_file)
     
     return df
 
@@ -212,29 +220,37 @@ def display_MCM_table(html_file:str):
 def get_groups_of_molec(molec, groups:dict, df_in, ind:int):
     """Function to that looks for a variety of functional groups, defined in "groups" 
     within a specific molecule. Will add this data into the dataframe, df at index, ind.
-    
+        
     Inputs:
     -------
-    
-    molec -  An RDKit molecule object (usually generated from things like 
-                                      molec= Chem.MolFromSMILES('CH4'))
-    
-    groups - A dictionary. Keys are "names" of functional groups, and the 
-             values are the SMART () string that defines that fragment. 
-             You could edit this to look for your own within the MCM, but my 
-             defined functional groups can be found in the Data folder. 
-             
-    df_in -  Dataframe that has a column for each MCM species. The function creates 
-             a column for each functional group and places the # of functional groups 
-             for molec at df(ind, column). 
-    
-    ind -    Index of what row in df refers to this specific molec. 
+        
+        molec -  An RDKit molecule object (usually generated from things like 
+                                          molec= Chem.MolFromSMILES('CH4'))
+        
+        groups - A dictionary. Keys are "names" of functional groups, and the 
+                 values are the SMART () string that defines that fragment. 
+                 You could edit this to look for your own within the MCM, but my 
+                 defined functional groups can be found in the Data folder. 
+                 
+        df_in -  Dataframe that has a column for each MCM species. The function creates 
+                 a column for each functional group and places the # of functional groups 
+                 for molec at df(ind, column). 
+        
+        ind -    Index of what row in df refers to this specific molec. 
     
     Outputs:
     --------
     
-    df -   Same as the input dataframe, except we've added data for the row, ind, 
-           with # of functional groups of everything defined in the dictionary, group. 
+        df -   Same as the input dataframe, except we've added data for the row, ind, 
+               with # of functional groups of everything defined in the dictionary, group. 
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+    
+    Change Log: 
+    ----------
+    10/29/2021    JDH Created 
     
     """
     # Check that user passed appropriate inputs. 
@@ -266,7 +282,7 @@ def get_groups_of_molec(molec, groups:dict, df_in, ind:int):
 
 
 def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_groups:bool=False,
-                     save= True, savepath: str = '', filename:str='chem_info', verbose:bool=True, 
+                     save= True, savepath: str = '', filename:str='', verbose:bool=True, 
                      nm_col:str= 'MCM_Name'):
     """Function that takes a pandas dataframe with a column named 'InChI' or 'SMILES' and 
     uses rdkit to extract its canonical SMILES string, Formula, Molecular weight, and (optionally)
@@ -280,7 +296,7 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
                 that tells us what molecules we want to query info about. Optional (If you 
                 have a column like "MCM_name" then you can set verbose to True for it to tell you which 
                 one its doing. Must have "name" in that column title"
-
+                
         overwrite_with_RDKIT- Boolean of whether you'd like to over write the input 
                 formulas and molecular weights with those calculated in RDKit. 
                 Sometimes MCM webscrape data is wrong, so this can correct it. 
@@ -303,8 +319,8 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
                    
         verbose - (optional) Boolean. Set True to see warnings/ errors 
         
-        Outputs: 
-        --------  
+    Outputs: 
+    --------  
         df - Pandas dataframe with all the original data and new columns iwth 
              data from the Wang et al., supplement added.
              
@@ -312,16 +328,22 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
                  Read this back in using:  
                     df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
     
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+    
+    Change Log: 
+    ----------
+    10/29/2021    JDH Created 
+    
     """
-    
-    # Set savepath to the path of the script if none is given.
-    if savepath == '' : savepath = os.path.dirname(os.path.abspath(__file__))
-    
+    # Check save pathways. Get a nice filename to hold data. 
+    excel_file= check_filename(filename=filename, default_name='chem_info', ext='.xlsx', 
+                           savepath=savepath, return_full=True, overwrite=False) 
+        
     # Check that the user passed appropriate inputs. 
     if not isinstance(df_in, pd.DataFrame): 
         sys.exit("ERROR in query_rdkit_info(): df_in must be a pandas Dataframe.")
-    if not os.path.exists(savepath): 
-        sys.exit("ERROR in query_rdkit_info(): savepath does not exist.")
         
     df= df_in.copy() # Just make a copy so you're not changing stuff in the input df.
     
@@ -436,15 +458,15 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     df=df[order].reindex()
 
     # Save the output dataframe. You can Read this back in using: 
-    #                            df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
-    df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
-    print('excel file saved as: ' + savepath+filename+'.xlsx')
+    #                            df=pd.read_excel(excel_file,engine="openpyxl", index_col=0)
+    df.to_excel(excel_file,engine="openpyxl")
+    print('excel file saved as: ' +excel_file)
     
     return df
 
 
 def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
-                        map_dict:dict=dict({}), filename:str='mech_plus_Wang_et_al' ):
+                        filename:str='', map_dict:dict=dict({}),  ):
     
     """ Function to take the supplemental info from Wang et al,. 2017: 
         
@@ -452,12 +474,12 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
         calculations of atmospheric oxidation products ' 
         
         https://acp.copernicus.org/articles/17/7529/2017/
-
+        
        and add it all into dataframe containing a bunch of info about MCM species.  
        
        
-       Inputs: 
-       -------
+    Inputs: 
+    -------
         df_in     - A pandas dataframe that has a column, name_col which 
                     has the MCM ID names of each var you'd like to add info about. 
         
@@ -478,23 +500,32 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
                     Useful to get info if your vars have the same SMILES
                     but have different names / dif capitolization.
         
-        Outputs: 
-        --------  
+    Outputs: 
+    --------  
         df - Pandas dataframe with all the original data and new columns iwth 
              data from the Wang et al., supplement added.
              
         excel - Excel workbook file with df info saved at savepath+filename.xlsx 
                  Read this back in using:  
                     df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
-       """ 
+                    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+    
+    Change Log: 
+    ----------
+        10/29/2021    JDH Created 
+    """ 
+    excel_file= check_filename(filename=filename, default_name='mech_plus_Wang_et_al', ext='.xlsx', 
+                               savepath=savepath, return_full=True, overwrite=False) 
+    
     # Set savepath to the path of the script if none is given.
     if savepath == '' and save is True: savepath = os.path.dirname(os.path.abspath(__file__))
     
     # Check that the user passed appropriate inputs. 
     if not isinstance(df_in, pd.DataFrame): 
         sys.exit("ERROR in add_Wang_et_al_info(): df_in must be a pandas Dataframe.")
-    if not os.path.exists(savepath) and save is True: 
-        sys.exit("ERROR in add_Wang_et_al_info(): savepath does not exist.")
     if not name_col in list(df_in.columns): 
         sys.exit("ERROR in add_Wang_et_al_info(): name_col is not in df_in passed.")
     
@@ -541,9 +572,9 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
     df=df[order].reindex()
     
     if save is True:  # Save the file if asked...
-        # Read this back in using:  df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
-        df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
-        print('Excel file saved as: ' + savepath+filename+'.xlsx') 
+        # Read this back in using:  df=pd.read_excel(excel_file,engine="openpyxl", index_col=0)
+        df.to_excel(excel_file,engine="openpyxl")
+        print('Excel file saved as: ' + excel_file) 
       
     return df
 
@@ -582,15 +613,13 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
         excel -   Excel worbook file file with df info saved at savepath+filename.xlsx 
         
        """ 
-    
-    # Set savepath to the path of the script if none is given.
-    if savepath == '' and save is True: savepath = os.path.dirname(os.path.abspath(__file__))
-    
+    # Check user inputs for output file names/ paths. 
+    excel_file= check_filename(filename=filename, default_name='mech_plus_precursors', ext='.xlsx', 
+                               savepath=savepath, return_full=True, overwrite=False) 
+
     # Check that the user passed appropriate inputs. 
     if not isinstance(df_in, pd.DataFrame): 
         sys.exit("ERROR in assign_precursors(): df_in must be a pandas Dataframe.")
-    if not os.path.exists(savepath) and save is True: 
-        sys.exit("ERROR in assign_precursors(): savepath does not exist.")
     if not name_col in list(df_in.columns): 
         sys.exit("ERROR in assign_precursors(): name_col is not in df_in passed.")
     
@@ -614,8 +643,8 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
     df=df[order].reindex()
     
     if save is True:  #Save the output dataframe. 
-        df.to_excel(savepath+filename+'.xlsx',engine="openpyxl")
-        print('Excel file saved as: ' + savepath+filename+'.xlsx') 
+        df.to_excel(excel_file,engine="openpyxl")
+        print('Excel file saved as: ' + excel_file) 
       
     return df 
 
@@ -642,56 +671,5 @@ def load_data_files(groups=False, precursors=False, species=False, Wangetal=Fals
         return df
   
     
-def dict2df(dat_in=dict({}), full_file='', savepath='', filename='', reverse:bool=False, 
-            split_on_comma=False, parse_chars=False):
-    """Function to take a dictionary and save it as a df in an xlsx file. 
-    Easy way to save lists of varying lens in a easy to read excel. OR do vice-versa!"""
-    
-    # Set savepath to the path of the script if none is given & no abs path is given
-    if full_file=='':
-        if savepath == '': savepath = os.path.dirname(os.path.abspath(__file__))
-        full_file=savepath+filename
-    if reverse ==False:  # Turn dict into a df with 2 cols: Key and Value.
-        df=pd.DataFrame(); df['Key']=[' ']*len(dat_in); df['Value']= [' ']*len(dat_in)
-        ind=0
-        for key in dat_in: 
-            listy=dat_in[key]
-            listy.sort()
-            df.at[ind,'Key']= key
-            df.at[ind,'Value']=listy
-            ind=ind+1
-            
-        df.to_excel(full_file+'.xlsx', engine="openpyxl",)
-        print("Data Saved at: {}".format(full_file+'.xlsx'))                                            
-        
-        return df 
-    else:  # Turn df into a Dict! 
-        df_in=pd.read_excel(full_file+'.xlsx', engine="openpyxl", index_col= 0)
-        
-        if len(df_in.columns)<2: 
-            sys.exit('Error in dict2df(): Function only works on dfs with at least 2 columns.')
-        
-        dict_out=dict({}); key_col=df_in.columns[0]; val_col=df_in.columns[1]
-        for i in df_in.index:
-            #Get "key" and "value", and strip spaces... 
-            key=str(df_in.loc[i,key_col]); key=key.replace(' ', '')
-            value= df_in.loc[i,val_col];  
-            if type(value) ==str: value=value.replace(' ', '')
-            
-            # Remove weird characters if asked... 
-            if parse_chars is True: 
-                for bad in ["'",'[',']']:   
-                    if type(value) ==str: value=value.replace(bad, '')
-                    key=key.replace(bad, '')
-            
-            # Split value string on commas if asked... 
-            if split_on_comma is True and type(value)==str: 
-                listy=value.split(',') # Turn into list
-                listy.sort()
-            else:
-                listy=value
-        
-            dict_out[key]=listy 
-            
-        return dict_out
+
 
