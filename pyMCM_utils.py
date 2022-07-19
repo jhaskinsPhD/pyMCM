@@ -93,30 +93,32 @@ def enforce_list_inds(inds,list_ofs):
     Mostly used when taking indices from unq2List(rxn_list) and 
     applying them in K,GStr, F lists.""" 
     
-    out=list() # Empty list to hold things for output. 
+    out=[];# Empty list to hold things for output. 
     
     # Loop over all items turn into arrays so we can index them and append to out
     for item in list(list_ofs): 
-        
-        sub = [item[i] for i in list(inds)]
-        out.append(sub)
-                              
-    return list(out)
+        this_list=[]; 
+        this_list= [item[i] for i in list(inds) if item[i] not in this_list]
+        out.append(this_list)
+
+    return out
 
 
 def flatten_nested_list(list_in, drop_dupes=False): 
     """Function to take a nested list and flatten into a 1d list.""" 
-    is_nested=True if type(list_in[0]) ==type(['v','d']) else False 
-    if is_nested is True: 
-        list_out=[]; 
-        if drop_dupes is True: 
-            for list_i in list_in: 
-                [list_out.append(r) for r in list_i if r not in list_out]
+    if len(list_in) > 0: 
+        is_nested=True if type(list_in[0]) ==type(['v','d']) else False 
+        if is_nested is True: 
+            list_out=[]; 
+            if drop_dupes is True: 
+                [list_out.append(r) for list_i in list_in for r in list_i if r not in list_out]
+            else: 
+                [list_out.append(r) for list_i in list_in for r in list_i]
         else: 
-            for list_i in list_in: 
-                [list_out.append(r) for r in list_i if r not in list_out]
+            list_out=list_in 
     else: 
-        list_out=list_in 
+        list_out=[]
+            
     return list_out
 
 
@@ -151,27 +153,24 @@ def drop_dupes(listy):
 def list_dupes(seq, thresh=1): 
     """Finds the location of ALL DUPLICATES in a list in a single pass.
     returns a dictionary with keys= all duplicate values and values = index in seq."""
-    out=dict({})
-    tally = defaultdict(list)
-    for i,item in enumerate(seq):
-        # If the values in seq are a list, then join them otgether with a comma 
-        # because keys can't be lists they must be strings!
-        skip=False
-        if type(item)==type(list()): 
-            if len(item) >1: 
-                item=[str(it) for it in item]
-                item=','.join(item)
-            else: 
-                if len(item)==1: 
-                    item=item[0] 
-                else: 
-                    skip=True
-        if skip is False:                                  
-            tally[item].append(i)
-        
-    for key,locs in tally.items():
-       if len(locs)>thresh: out[key]=locs 
-       
+    out=dict({}); tally = defaultdict(list)
+    
+    # Nothing is a list. 
+    if all([ type(item)!= type(list()) for item in seq]) : 
+        [tally[item].append(i) for i,item in enumerate(seq)]
+    else: 
+        # If the values in seq are a list, then join them together with a comma 
+        # because dict keys can't be lists they must be strings.
+        for i,item in enumerate(seq):
+            skip=False
+            if type(item)==type(list()) and len(item) > 1: 
+                item=','.join([str(it) for it in item])
+            elif type(item)==type(list()) and len(item)==1: item=item[0] 
+            elif type(item)==type(list()) and len(item)<1: skip=True 
+            if skip is False: tally[item].append(i)
+    
+    out= {key:locs for key,locs in tally.items() if len(locs)>thresh}
+
     return  out
 
 
@@ -187,38 +186,29 @@ def find_in_list(val2find, inlist, replace_with='', drop_all=False, drop_first=F
     
     Match if contains will return a match to any item in inlist which contains a partial match to val2find... 
     """
-    
-    outlist=inlist; # Set the output to the input list. Pop values later if found. 
-    indx=[]; 
-    
-    inds2all= list_dupes(inlist, thresh=0) # List of where everything is located in the list. 
-    
-    # If you're trying to find a list... then join it the same way inds2all will.. with commas.
-    if type(val2find)==type(list()): 
-        if len(val2find) >1: 
-                val2find=[str(it) for it in val2find]
-                val2find=','.join(val2find)
-        else: 
-            if len(val2find)==1: 
-                val2find=val2find[0] 
+    outlist=inlist; indx=[];  # Set the output to the input list. Pop values later if found. 
 
+    # Returns dictionary of all items in inlist where keys are the items and values are the index! 
+    inds2all= list_dupes(inlist, thresh=0) 
+    
+    # If you're trying to find a list within a list!... 
+    # then join the target list in the same way list_dupes(in_list).. with commas.
+    if type(val2find)==type(list()): 
+        if len(val2find) >1: # only do it if you list has more than one item in it. 
+                val2find=','.join([str(it) for it in val2find])
+        else: #Otherwise find the one value that's in that list! 
+            if len(val2find)==1: val2find=val2find[0] 
+    
+    # If the user wants an exact match and the key of it is in the inds2all. then get its index. 
     if val2find in inds2all.keys() and match_if_contains is False: 
             indx=inds2all[val2find] # List of indices of match to this val
-    else: 
-         if partial_match is True:
-             indx=[] 
-             for ky in list(inds2all.keys()): 
-                 if val2find in ky: 
-                     indx.append(inds2all[ky])
-             
+    elif partial_match is True: 
+         indx=[inds2all[ky] for ky in list(inds2all.keys()) if val2find in ky] # See if any of the keys contain your val. 
+         if len(indx) > 0:  indx=flatten_nested_list(indx)
         
     if match_if_contains is True: 
-        for key in inds2all: 
-            key_list=key.split(',')
-            if val2find in key_list: 
-                indx=indx+inds2all[key]
-                
-        indx=drop_dupes(indx) 
+        indx=[inds2all[key] for key in inds2all if val2find in key.split(',')]
+        if len(indx) >0:  indx=flatten_nested_list(indx, drop_dupes=True)
     
     # Replace val2find with replace_with... 
     if replace_with != '' and  (len(indx)>0):
@@ -297,16 +287,16 @@ def get_split_add(lists, to_add=None, parse_chars:bool=False):
 def move_lists(items, from_lists, to_lists) :
     """Function to move an item from one list to another."""
     
-    if type(from_lists) == list():
+    if type(from_lists[0]) == type(['']):
         for i,val in enumerate(items): 
-            from_lists[i].remove(val)
-            to_lists[i].append(val)
+            if val in from_lists[i]: from_lists[i].remove(val)
+            if val not in to_lists[i]: to_lists[i].append(val)
     else: 
         for val in items: 
             if val in from_lists: from_lists.remove(val)
             if val not in to_lists: to_lists.append(val)
         
-    return from_lists, to_lists
+    return [from_lists, to_lists]
 
 
 def mod_list_as_str(str_list, add=None, remove=None, prefix='', suffix='', ignore=[]): 

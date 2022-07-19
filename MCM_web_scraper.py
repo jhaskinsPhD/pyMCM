@@ -15,7 +15,8 @@ from bs4 import BeautifulSoup
 from rdkit import Chem
 from rdkit.Chem import  Descriptors, rdMolDescriptors, Fragments
 
-from utils import * 
+
+from pyMCM_utils import * 
 
 
 def MCM_data_scraper(species_list, get_image: bool = False, display: bool = False,
@@ -356,7 +357,7 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     
     # Figure out what column is that has the "name" or "id" of the molecule in it. 
     name_col=[col_dict[col] for col in col_dict.keys() if 'NAME' in col]
-    
+    print(col_dict.keys())
     # Determine what info is in this df if no desc column was passed...      
     if 'SMILES' in col_dict.keys(): 
         use= col_dict['SMILES']; get=['InChI', 'Canonical_SMILES']; case=2
@@ -392,19 +393,20 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
             mw=Descriptors.MolWt(molec)
             
             if has_mw is True:  # Determine dif between input and predicted MW for this compound...  
-                current_mw=np.round(df.loc[ind,col_dict['MOLECULAR_WEIGHT']]*1000)/1000
+                uses='MOLECULAR_WEIGHT' if 'MW' not in list(col_dict.keys()) else 'MW'
+                current_mw=np.round(df.loc[ind,col_dict[uses]]*1000)/1000
                 rdkit_mw=np.round(mw*1000)/1000;  dif= np.abs(current_mw-rdkit_mw)
                 if dif > 0.3: # Print a warning if there's a big difference... 
                     print('WARNING: For{}, input MW is {}, but RDKit MW is {}. Abs(Difference) = {}.'.format(
                         names,current_mw, rdkit_mw, dif))
-                    mwarning[ind]=False
+                    #mwarning[ind]=False
             
             if has_formula is True: 
                 current_form=str(df.loc[ind,col_dict['FORMULA']]).upper().replace(' ', '')
                 if form.upper() != current_form: 
                     print('WARNING: For{}, input Formula is {}, but RDKit Formula is {}.'.format(
                         names,current_form, form.upper()))
-                    fwarning[ind]=False
+                    #fwarning[ind]=False
                     
             if add_functional_groups is True: 
                     # Add # of functional groups of this molec to dataframe! 
@@ -454,15 +456,16 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     top=[nm_col, 'Description', 'Formula','Molecular_Weight','SMILES','Canonical_SMILES', 'InChI', 
          'Is_Radical', 'Is_RO2', 'Is_RO']
     bottom=['NIST_url','Image']; mid=[c for c in list(df.columns) if c not in top and c not in bottom]
-    order=top+mid+bottom; [order.pop(order.index(c)) for c in order if c not in df.columns]
+    order=top+mid+bottom; order= [c for c in order if c in list( df.columns)]
+    
     df=df[order].reindex()
-
+    
+    odf=df.copy() 
     # Save the output dataframe. You can Read this back in using: 
-    #                            df=pd.read_excel(excel_file,engine="openpyxl", index_col=0)
     df.to_excel(excel_file,engine="openpyxl")
     print('excel file saved as: ' +excel_file)
     
-    return df
+    return odf
 
 
 def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
@@ -653,21 +656,21 @@ def load_data_files(groups=False, precursors=False, species=False, Wangetal=Fals
     """Function to load data needed for these functions to work."""
     path=os.path.dirname(__file__)
     if groups is True: 
-        gpp= dict2df(savepath=path, filename='/Data/Functional_Group_SMARTs', parse_chars=False, reverse=True)
+        gpp= dict2df(savepath=path, filename='/IO_data/Functional_Group_SMARTs', parse_chars=False, reverse=True)
         return gpp
         
     if precursors is True  or species is True: 
         if precursors is True:
-            precs= dict2df(savepath=path, filename='/Data/MCM_precursors', reverse=True,split_on_comma=True)
+            precs= dict2df(savepath=path, filename='/IO_Data/MCM_precursors', reverse=True,split_on_comma=True)
             return precs 
         else:
-            df_in=pd.read_excel(path+'/Data/MCM_precursors.xlsx', engine='openpyxl',index_col=0)
+            df_in=pd.read_excel(path+'/IO_Data/MCM_precursors.xlsx', engine='openpyxl',index_col=0)
             species=list(df_in['MCM_Name'])
             species.sort()
             return species
         
     if Wangetal is True: 
-        df=pd.read_csv(path+'/Data/Wang_et_al_2017_Supplement.csv')
+        df=pd.read_csv(path+'/IO_Data/Wang_et_al_2017_Supplement.csv')
         return df
   
     

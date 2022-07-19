@@ -4,7 +4,7 @@ import numpy as np
 import sys
 
 
-def join_list_for_MATLAB(join_str:str, ls:list,
+def join_list_for_MATLAB(join_str:str, ls0:list,
                          min_len:int =75, 
                          add_semicolon:bool =False, 
                          comment:bool=False, 
@@ -34,7 +34,8 @@ def join_list_for_MATLAB(join_str:str, ls:list,
     1.14.2022   JDH created.                                      
     """
     ad=';' if add_semicolon is True  else '' 
-    
+    if comment is True: preface='%'+preface 
+    ls=ls0.copy()
     ln_ls=[]; lines=[]
     for i, item in enumerate(ls): 
         if type(item) != str: item=str(item) # Join only takes string lists. 
@@ -44,14 +45,15 @@ def join_list_for_MATLAB(join_str:str, ls:list,
             if len(ln) > min_len: 
                 if comment is True and i != 0: ln='% '+ln
                 lines.append(ln) # Keep all these joined strings. They will be on 1 line. 
-                ln_ls=[]; # reset list holding items to put on a single line.  
+                ln_ls=[]; # reset list holding items to put on a single line 
     
-    if len(lines)==0: # Stuff wasn't long enough! So write one line with it on it. 
-        out=preface+join_str.join(ls)+ad
-    else:
-        # Join each line together with the MATLAB line break and new line character 
-        to_join= join_str+'...\n    ' 
-        out=to_join.join(lines)+ad
+    # If anything still in ln_ls that isn't in lines, then add it! 
+    if len(ln_ls)!=0 and comment is True: lines.append('%'+join_str.join(ln_ls))
+    elif len(ln_ls)!=0 and comment is False: lines.append(join_str.join(ln_ls))
+    
+    # Join each line together with the MATLAB line break and new line character 
+    to_join= join_str+'...\n    ' 
+    out=preface+to_join.join(lines)+ad
     
     return out 
 

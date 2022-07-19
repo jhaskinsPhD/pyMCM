@@ -7,13 +7,12 @@ Created on Thu Oct  7 09:16:41 2021
 import numpy as np 
 import csv
 import re 
+
 import sys 
-
-from pyatlab import *  # Tools for making things MATLAB compliant. 
-
-sys.path.insert(0,'C:/Users/jhask/OneDrive/Documents/Research/Projects/MIT/pOrgNO3/code/MCM_RCIM_SMILES/python/pyMCM/')
-from utils import *
-
+import set_my_paths as init # Add these folders to my sys path so I can use their functions! 
+init.add_to_path(sys.path, ['pyatlab', 'pyMCM_utils'])  
+from pyMCM_utils import * 
+from pyatlab import *  # Tools for making things MATLAB compliant.
 
                 
 def read_F0AM_mech(file,  tag='', map_dict=dict({}), check=True, 
@@ -672,7 +671,7 @@ def sep_stoich_vs_tracer(rxn_str:str, seps:list=['+','=', '->', '-->', '<->'] ):
         cmpds= ['TOLU', 'OH', 'TRO2', 'CH2O', 'GLYX', 'MGLY', 'OH']
         stoich= [1, 1, 1, 1.920, 0.260, 0.215, 1]
         
-    Notes: Don't have to passa whole rxn. Can pass just rcts or prds. 
+    Notes: Don't have to pass a whole rxn. Can pass just rcts or prds. 
            Function won't work properly if chem compounds can begin with numbers. 
            
     Author: 
@@ -695,7 +694,7 @@ def sep_stoich_vs_tracer(rxn_str:str, seps:list=['+','=', '->', '-->', '<->'] ):
             else: # Otherwise, loop over the chars in the grp til you find a letter. 
                 yld=grp[0]; ind=1; found_yld=False #Set yileld= to first char (not-a letter!)
                 
-                while found_yld==False:  #lopo til you find a letter. 
+                while found_yld==False:  #loop til you find a letter. 
                     if grp[ind].isnumeric() or grp[ind]=='.': # Found a letter or decimal place. 
                         yld=yld+grp[ind];  # Add to str containing all stoichiometry. 
                     elif grp[ind].isalpha() or  ind==len(grp)-1: # Found beginning of compound name. 
@@ -704,12 +703,13 @@ def sep_stoich_vs_tracer(rxn_str:str, seps:list=['+','=', '->', '-->', '<->'] ):
                         found_yld=True
                         break
                     ind=ind+1
-                        
+                    
+    if 'hv' in cmpds: cmpds.pop(cmpds.index('hv'))
     return cmpds, stoich
 
 
 def build_all_from_rxns(rxn_list:list, k_list:list, f_list:list=[], g_list:list=[], 
-                        sort_rxn_i=True, sort_rxn_list=False, verbose=True,map_dict= dict({}), ):
+                        sort_rxn_i=True, sort_rxn_list=False, verbose=True,map_dict= dict({})):
     """Function to bulid a F0AM Compliant mechanism from a list of reactions & rates . 
     
     Inputs: 
