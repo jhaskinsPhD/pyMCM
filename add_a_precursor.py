@@ -33,8 +33,11 @@ def add_a_precursor(precursor, precfile, mechfile):
                          
     Outputs: 
     ------- 
-         Updates the contents of precfile to include precursor as a precursor where appropriate! 
-         Automatically saves that file and returns the contents of the file updated as a dataframe.
+         Function will updates the contents of precfile to include precursor where appropriate! 
+         
+         prec_df - the UPdated contents of the precfile as a pandas dataframe.
+         
+         created_from - a list of compounds formed from the passed precursor. 
          
     NOTE: Function is used to update the precursor file then re-run the assign_precursors 
           function on an existing MCM_web scrape dataframe as in Example #4 
@@ -81,7 +84,8 @@ def add_a_precursor(precursor, precfile, mechfile):
     prec_df.to_excel(precfile)
     print ('Precursor datafile updated:' , precfile)
     
-    return prec_df
+    
+    return prec_df,created_from
 
 
 def nD_list2_nparray(lst):
