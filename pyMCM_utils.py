@@ -11,7 +11,8 @@ import pandas as pd
 from collections import defaultdict
 
 def check_filename(filename:str='', default_name:str= '', ext:str='', 
-                   savepath:str='', overwrite: bool=False,return_full:bool=False ): 
+                   savepath:str='', overwrite: bool=False,return_full:bool=False,
+                   quiet: bool =True): 
     """ Function to check user input "filename" and "savepath" are valid. If 
     none are passed, generates, a file at current working directory named "default_name" 
     with extensions ext. If Overwrite is True, then it will delete old files with this name 
@@ -21,11 +22,12 @@ def check_filename(filename:str='', default_name:str= '', ext:str='',
     
     Author: 
     -------
-        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
     
     Change Log: 
     ----------
     1/18/2022    JDH Created 
+    7/19/2022    JDH add "quiet" option. 
     
     """ 
     if '.' not in ext: ext= '.'+ext 
@@ -35,13 +37,13 @@ def check_filename(filename:str='', default_name:str= '', ext:str='',
      
     # Split the name into path / filename: 
     input_pth, filename= os.path.split(filename)
-    cwd=  os.path.dirname(os.path.abspath(__file__))+'/'
+    cwd=  os.path.dirname(os.path.abspath(__file__))+'\\'
     
     # Remove file extension. Just want str with name in it. 
     filename=filename.split('.')[0] if '.' in filename else filename
     
     # Specify savepath and make sure that it exists. 
-    if savepath == '': savepath= cwd  if len(input_pth)==0 else input_pth+'/' 
+    if savepath == '': savepath= cwd  if len(input_pth)==0 else input_pth+'\\' 
     if not os.path.exists(savepath): savepath=cwd
     
     fullname=savepath+filename+ext
@@ -61,7 +63,8 @@ def check_filename(filename:str='', default_name:str= '', ext:str='',
     
     file= filename+ext
     
-    print(fullname)
+    if quiet is False: print(fullname)
+    
     if return_full is True: 
         return fullname
     else:
@@ -70,13 +73,21 @@ def check_filename(filename:str='', default_name:str= '', ext:str='',
 
 def str_multi_replace(string, baddies, rep_all:str=''): 
     """ Replace multiple items in a string. 
-    Inputs: 
+    
+    Inputs:
+    -------
         string = str you want to replace items in. 
         baddies- list of chars to replace with rep_all or 
                  dict where keys are items to replace and values are replacements. 
         rep_all= str to replace items in list baddies with. Not relevant if baddies is dict. 
         
-     Author: Dr. Jessica D. Haskins 1.14.2022 (jhaskins@alum.mit.edu)
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
     """
     if type(baddies)==type(list()):  # If baddies is a list: 
         for item in baddies: 
@@ -91,7 +102,16 @@ def str_multi_replace(string, baddies, rep_all:str=''):
 def enforce_list_inds(inds,list_ofs):
     """Return itenms in a list from a list of their indices.
     Mostly used when taking indices from unq2List(rxn_list) and 
-    applying them in K,GStr, F lists.""" 
+    applying them in K,GStr, F lists.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """ 
     
     out=[];# Empty list to hold things for output. 
     
@@ -105,7 +125,16 @@ def enforce_list_inds(inds,list_ofs):
 
 
 def flatten_nested_list(list_in, drop_dupes=False): 
-    """Function to take a nested list and flatten into a 1d list.""" 
+    """Function to take a nested list and flatten into a 1d list.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """ 
     if len(list_in) > 0: 
         is_nested=True if type(list_in[0]) ==type(['v','d']) else False 
         if is_nested is True: 
@@ -124,7 +153,16 @@ def flatten_nested_list(list_in, drop_dupes=False):
 
 def convert_nested_list_2arr(nested_list_in): 
     """Function to turn a nested list into an np.array of the same size. 
-    Nested lists shorter than the max will have None as their vals..."""
+    Nested lists shorter than the max will have None as their vals.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """
     
     # Create array full of None that is the same len as the nested_list_in, 
     #but as wide as the longest nested list. 
@@ -139,7 +177,17 @@ def convert_nested_list_2arr(nested_list_in):
 
 
 def drop_dupes(listy): 
-    """Function to return a list with no dupes""" 
+    """Function to return a list with no dupes.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    
+    """ 
     dupes=list_dupes(listy, thresh=0) # List of where eveything is. 
     
     list_out=[]
@@ -152,7 +200,16 @@ def drop_dupes(listy):
 
 def list_dupes(seq, thresh=1): 
     """Finds the location of ALL DUPLICATES in a list in a single pass.
-    returns a dictionary with keys= all duplicate values and values = index in seq."""
+    returns a dictionary with keys= all duplicate values and values = index in seq.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """
     out=dict({}); tally = defaultdict(list)
     
     # Nothing is a list. 
@@ -184,7 +241,16 @@ def find_in_list(val2find, inlist, replace_with='', drop_all=False, drop_first=F
     If you're looking for a match within a list (e.g. if val2find is a list!),
     then use match_i to set the index of where the val2find should be located in the inlist.
     
-    Match if contains will return a match to any item in inlist which contains a partial match to val2find... 
+    Match if contains will return a match to any item in inlist which contains a partial match to val2find.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    
     """
     outlist=inlist; indx=[];  # Set the output to the input list. Pop values later if found. 
 
@@ -236,7 +302,17 @@ def find_in_list(val2find, inlist, replace_with='', drop_all=False, drop_first=F
 
 
 def drop_indxs_from_lists(lists, indxs): 
-    """Function to take a list of indexes, and drop them from a list of lists."""
+    """Function to take a list of indexes, and drop them from a list of lists.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    
+    """
     if len(indxs) > 0: 
         lists_out=[];
         for list_i in lists: 
@@ -253,9 +329,14 @@ def get_split_add(lists, to_add=None, parse_chars:bool=False):
     """Function to take two comma delimited strings, and combine them without dupes.
     Also can remove "[" or "'" left from lists --> str conversions(?) using parse_char.
     
-    Author: Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
     
-    1/18/2022: JDH Created """
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """
     
     combo=[]
     for listy in lists: 
@@ -285,7 +366,16 @@ def get_split_add(lists, to_add=None, parse_chars:bool=False):
 
 
 def move_lists(items, from_lists, to_lists) :
-    """Function to move an item from one list to another."""
+    """Function to move an item from one list to another.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    """
     
     if type(from_lists[0]) == type(['']):
         for i,val in enumerate(items): 
@@ -302,7 +392,16 @@ def move_lists(items, from_lists, to_lists) :
 def mod_list_as_str(str_list, add=None, remove=None, prefix='', suffix='', ignore=[]): 
     """Function to take a delimited strings, and add or remove anything in the 
     list add or the list remove... Can also add prefixes or suffixes to items in str list.
-    Ignore is a list of items in the list not to add a prefix or suffix to. 
+    Ignore is a list of items in the list not to add a prefix or suffix to.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    
     """
     if type(ignore)==str: ignore=[ignore]
     split=str_list.split(',')
@@ -328,7 +427,15 @@ def mod_list_as_str(str_list, add=None, remove=None, prefix='', suffix='', ignor
 def dict2df(dat_in=dict({}), full_file='', savepath='', filename='', reverse:bool=False, 
             split_on_comma=False, parse_chars=False):
     """Function to take a dictionary and save it as a df in an xlsx file. 
-    Easy way to save lists of varying lens in a easy to read excel. OR do vice-versa!"""
+    Easy way to save lists of varying lens in a easy to read excel. OR do vice-versa!
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created """
     
     # Set savepath to the path of the script if none is given & no abs path is given
     if full_file=='':
@@ -380,7 +487,17 @@ def dict2df(dat_in=dict({}), full_file='', savepath='', filename='', reverse:boo
   
     
 def reverse_dict(dict_in): 
-    """Function to reverse a dictionary, values:keys, takes care of dupes in values.""" 
+    """Function to reverse a dictionary, values:keys, takes care of dupes in values.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins    GitHub: @jhaskinsPhD  Email: jhaskins@alum.mit.edu
+    
+    Change Log: 
+    ----------
+    1/14/2022    JDH Created 
+    
+    """ 
     keys=list(dict_in.keys())
     values=list(dict_in.values())
     

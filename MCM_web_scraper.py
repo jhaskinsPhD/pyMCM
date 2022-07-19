@@ -2,11 +2,12 @@
 """
 @author: Dr. Jessica D. Haskins  
 Email: jhaskins@alum.mit.edu 
-Github: jdhask 
+Github: @jhaskinsPhd
 """
 
 import os  
 import sys 
+import time 
 import numpy as np  
 import pandas as pd   
 import requests  
@@ -14,7 +15,6 @@ import webbrowser
 from bs4 import BeautifulSoup
 from rdkit import Chem
 from rdkit.Chem import  Descriptors, rdMolDescriptors, Fragments
-
 
 from pyMCM_utils import * 
 
@@ -64,46 +64,76 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
           
     Author: 
     -------
-        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
     
     Change Log: 
     ----------
         10/29/2021    JDH Created 
         1/18/2022     JDH modded function locations to allow use with F0AM_Tools
+        7/19/2022     JDH updated species_list 'All' functionality, added input error handling, &
+                          a screen print progress display
     """
     
-    # Check the file path + file names given. 
+    # Check the file path + file names given, make sure they're valid & make them if not! 
     excel_file= check_filename(filename=filename, default_name='MCM_web_scrape', ext='.xlsx', 
                    savepath=savepath, overwrite=False, return_full=True)
     html_file= check_filename(filename=filename, default_name='MCM_web_scrape', ext='.html', 
                    savepath=savepath, overwrite=False, return_full=True)
     
-    if species_list[0].lower()=='all':  species_list=load_data_files(species=True)
-    
-    # Create an empty pandas dataframe with column names of all the info we're gonna scrape.
+    # Check user inputs for proper type and also check if user passed "all".
+    # If so, transform that into a "species list" by loading names from an IO file we have. 
+    if type(species_list) ==str: 
+        if species_list.replace(' ', '').lower()=='all': 
+            species_list=load_data_files(species=True)
+        else: 
+            raise TypeError("The input 'species_list' must either be a list ", 
+                            "of species in the MCM or a str=='All' (not case sensitive).") 
+    elif type(species_list)== list: 
+        if len(species_list) ==0: 
+            raise SyntaxError("The input 'species_list' cannot be length ==0. Check inputs!")
+        elif species_list[0].replace(' ', '').lower()=='all':
+             species_list=load_data_files(species=True)
+
+    # Create an empty pandas dataframe to hold all the info we're gonna scrape.
     df = pd.DataFrame(columns=['MCM_Name', 'Formula', 'Molecular_Weight',
                        'InChI', 'SMILES',  'Description', 'Image', 'NIST_url'])
-
-    if get_image is False:
-        # Don't need image column if not gonna grab.
+    
+    if get_image is False: # Don't need image column if not gonna grab those
         df = df.drop(columns='Image')
-    else:  # Are grabbinb images, so make a subfolder in savepath to keep them.
+    else:  # We are grabbing images, so make a subfolder in savepath to keep them.
         if not os.path.exists(savepath+'/MCM_Images/'):
             os.makedirs(savepath+'/MCM_Images/')
-            
+    
+    # If user does "All" then it can take a while. Set up to display progress! 
+    tote_n=len(species_list); disp_tf=dict({}) 
+    print_on=np.arange(0,105,5) if tote_n >1000 else np.arange(0,110,10)
+    for item in print_on: disp_tf[item]=True # Set all to True to begin! 
+        
     # Loop through all speices you'd like to scrape data for.
-    for sps in species_list:
+    for n_sp, sps in enumerate(species_list):
+        
+        # Print progress to the screen! 
+        pct=np.round((n_sp/tote_n)*100)
+        if pct in disp_tf.keys() and disp_tf[pct]==True: 
+            if pct==0: 
+                if tote_n> 100: 
+                    print("WARNING: This may take a long time, ",
+                          "given the # of species you are scraping data for! \n") 
+                print("Beginning Scrape..."+str(np.round(pct))+'%')
+            else:
+                print("..."+str(np.round(pct))+'%') # Print progress to the screen! 
+            disp_tf[pct]= False # Update dict so don't print a % more than once.
         
         # This is the 2021 base URL for browing an MCM species on the MCM website.
         # URL to the MCM website for a species.
         url = 'http://mcm.york.ac.uk/browse.htt?species='+sps
-        page = requests.get(url)
+        page = requests.get(url)  # Use beautiful soup to get the webpage contents! 
         soup = BeautifulSoup(page.content, 'html.parser')
         table = soup.find('table', {"class": "infobox"})
         tr = table.findAll(['tr'])
         
-        # The InChI / SMILES infor is all contained within a "table" of the webpage...
-        # Found by inspecting "soup" manually. If website changes, will need to re-inspect the soup!
+        # The InChI / SMILES info is all contained within a "table" of the webpage...
+        # Found by inspecting "soup" manually. If website changes, we'll need to re-inspect the soup!
         for cell in tr:
             th = cell.find_all('th')
             data_hdr = [col.text.strip('\n') for col in th][0]
@@ -120,7 +150,7 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
             else:
                 inchi = ''
                 
-            synl = list() # Get the list of synonyms of this compoudn. 
+            synl = list() # Get the list of "synonyms" of this compoudn. 
             if data_hdr.lower() == 'synonyms':
                 if len(data_hdr) > 0:
                     nms = row.split(';')
@@ -129,6 +159,7 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
                         item = item.replace('\t', '')
                         if (len(item) > 0) and (item not in synl):
                             synl.append(item)
+            if len(synl)==0: syn='None'
             for s in synl: # Take list, convert to string... 
                 s=s.replace("'",'')
                 if len(s)==0: 
@@ -172,16 +203,20 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
                         dat = [i.get_text().split(':') for i in parent]
                         if 'Formula' in dat[0][0].strip():
                             form = dat[0][1].strip()
-
+            
             if get_image is True:
-                df = df.append({'MCM_Name': sps, 'Formula': form, 'Molecular_Weight': mw,'InChI': inchi, 'SMILES': smiles, 
-                                'Description': syn,  'Image': img, 'NIST_url': nist_url}, ignore_index=True)
+                df = df.append({'MCM_Name': sps, 'Formula': form, 'Molecular_Weight': mw,
+                                'InChI': inchi, 'SMILES': smiles, 'Description': syn, 
+                                'Image': img, 'NIST_url': nist_url}, ignore_index=True)
             else:
-                df = df.append({'MCM_Name': sps, 'Formula': form, 'Molecular_Weight': mw, 'InChI': inchi, 'SMILES': smiles, 
-                                'Description': syn,  'NIST_url': nist_url}, ignore_index=True)
+                df = df.append({'MCM_Name': sps, 'Formula': form, 'Molecular_Weight': mw, 
+                                'InChI': inchi, 'SMILES': smiles, 'Description': syn, 
+                                'NIST_url': nist_url}, ignore_index=True)
     
     # Make sure string columns are all strings... 
     only_strs= ['MCM_Name','Formula','InChI','SMILES','Description', 'NIST_url', 'Image']
+    if get_image is False: only_strs.remove('Image')
+    
     for i in df.index: 
         for col in only_strs: 
             if type(df.loc[i,col])!=str:
@@ -203,14 +238,23 @@ def MCM_data_scraper(species_list, get_image: bool = False, display: bool = Fals
     # Also save the data as an excel workbook. 
     # Read this back in using:  df=pd.read_excel(savepath+filename_'.xlsx',engine="openpyxl", index_col=0)
     df.to_excel(excel_file,engine="openpyxl")
-    print('excel file saved as: ' + excel_file)
+    print('Excel file saved as: ', excel_file) 
     
     return df
 
 
 def display_MCM_table(html_file:str):
     """Function to display the MCM_scraped HTML file in your web browser.
-    If you have scraped the images as well, this wil displaythem.""" 
+    If you have scraped the images as well, this wil display them.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
+    
+    Change Log: 
+    ----------
+        10/29/2021    JDH Created 
+    """ 
     
     # Open the stored HTML file on the default browser
     webbrowser.open(html_file, new=2)
@@ -247,12 +291,11 @@ def get_groups_of_molec(molec, groups:dict, df_in, ind:int):
     
     Author: 
     -------
-        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
     
     Change Log: 
     ----------
-    10/29/2021    JDH Created 
-    
+        10/29/2021    JDH Created 
     """
     # Check that user passed appropriate inputs. 
     if not isinstance(df_in, pd.DataFrame): 
@@ -331,16 +374,15 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     
     Author: 
     -------
-        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
     
     Change Log: 
     ----------
-    10/29/2021    JDH Created 
-    
+        10/29/2021    JDH Created 
     """
-    # Check save pathways. Get a nice filename to hold data. 
-    excel_file= check_filename(filename=filename, default_name='chem_info', ext='.xlsx', 
-                           savepath=savepath, return_full=True, overwrite=False) 
+    if save is True: # Check save pathways. Get a nice filename to hold data. 
+        excel_file= check_filename(filename=filename, default_name='chem_info', ext='.xlsx', 
+                               savepath=savepath, return_full=True, overwrite=False) 
         
     # Check that the user passed appropriate inputs. 
     if not isinstance(df_in, pd.DataFrame): 
@@ -357,12 +399,12 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     
     # Figure out what column is that has the "name" or "id" of the molecule in it. 
     name_col=[col_dict[col] for col in col_dict.keys() if 'NAME' in col]
-    print(col_dict.keys())
-    # Determine what info is in this df if no desc column was passed...      
-    if 'SMILES' in col_dict.keys(): 
-        use= col_dict['SMILES']; get=['InChI', 'Canonical_SMILES']; case=2
-    elif 'INCHI' in col_dict.keys(): 
+
+    # Determine what info is in this df if no desc column was passed...     
+    if 'INCHI' in col_dict.keys(): 
         use= col_dict['INCHI'] ; get=['Canonical_SMILES']; case=1
+    elif 'SMILES' in col_dict.keys(): 
+        use= col_dict['SMILES']; get=['InChI', 'Canonical_SMILES']; case=2
     elif 'CANONICAL_SMILES' in col_dict.keys(): 
         use= col_dict['CANONICAL_SMILES']; get=['InChI']; case=3
     else: 
@@ -375,9 +417,10 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
         
     # Initialize lists to hold stuff and warnings of inconsistencies! 
     formulas=[]; mws=[]; smiles=[]; inchis=[]                         
-    mwarning=np.full([len(df.index),1], 1, dtype=bool)
-    fwarning=np.full([len(df.index),1], 1, dtype=bool)
+    mwarning=np.full([len(df.index)], 1, dtype=bool)
+    fwarning=np.full([len(df.index)], 1, dtype=bool)
     
+    print ('\n', '---------- BEGIN RDKIT WARNINGS ----------')
     for ind in df.index: # Loop over all compounds in the input dataframe. 
         names= ','.join(list(df.loc[ind,name_col])) # Name of this compound. 
         
@@ -399,14 +442,14 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
                 if dif > 0.3: # Print a warning if there's a big difference... 
                     print('WARNING: For{}, input MW is {}, but RDKit MW is {}. Abs(Difference) = {}.'.format(
                         names,current_mw, rdkit_mw, dif))
-                    #mwarning[ind]=False
+                    mwarning[ind]=False
             
             if has_formula is True: 
                 current_form=str(df.loc[ind,col_dict['FORMULA']]).upper().replace(' ', '')
-                if form.upper() != current_form: 
+                if form.upper() != current_form:
                     print('WARNING: For{}, input Formula is {}, but RDKit Formula is {}.'.format(
                         names,current_form, form.upper()))
-                    #fwarning[ind]=False
+                    fwarning[ind]=False
                     
             if add_functional_groups is True: 
                     # Add # of functional groups of this molec to dataframe! 
@@ -459,13 +502,15 @@ def query_rdkit_info(df_in,overwrite_with_RDKIT:bool=False ,add_functional_group
     order=top+mid+bottom; order= [c for c in order if c in list( df.columns)]
     
     df=df[order].reindex()
+    time.sleep(5)
+    print ('---------- END RDKIT WARNINGS ----------', '\n')
     
-    odf=df.copy() 
     # Save the output dataframe. You can Read this back in using: 
-    df.to_excel(excel_file,engine="openpyxl")
-    print('excel file saved as: ' +excel_file)
+    if save is True:
+        df.to_excel(excel_file,engine="openpyxl")
+        print('Excel file saved as: ', excel_file) 
     
-    return odf
+    return df
 
 
 def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
@@ -514,12 +559,12 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
                     
     Author: 
     -------
-        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jdhask
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
     
     Change Log: 
     ----------
         10/29/2021    JDH Created 
-    """ 
+    """
     excel_file= check_filename(filename=filename, default_name='mech_plus_Wang_et_al', ext='.xlsx', 
                                savepath=savepath, return_full=True, overwrite=False) 
     
@@ -577,7 +622,7 @@ def add_Wang_et_al_info(df_in, name_col:str, save:bool=True, savepath:str='',
     if save is True:  # Save the file if asked...
         # Read this back in using:  df=pd.read_excel(excel_file,engine="openpyxl", index_col=0)
         df.to_excel(excel_file,engine="openpyxl")
-        print('Excel file saved as: ' + excel_file) 
+        print('Excel file saved as: ', excel_file) 
       
     return df
 
@@ -615,7 +660,14 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
              
         excel -   Excel worbook file file with df info saved at savepath+filename.xlsx 
         
-       """ 
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
+    
+    Change Log: 
+    ----------
+        10/29/2021    JDH Created 
+    """
     # Check user inputs for output file names/ paths. 
     excel_file= check_filename(filename=filename, default_name='mech_plus_precursors', ext='.xlsx', 
                                savepath=savepath, return_full=True, overwrite=False) 
@@ -647,13 +699,23 @@ def assign_precursors(df_in, name_col:str, save:bool=True, savepath:str='',
     
     if save is True:  #Save the output dataframe. 
         df.to_excel(excel_file,engine="openpyxl")
-        print('Excel file saved as: ' + excel_file) 
+        print('Excel file saved as: ', excel_file) 
       
     return df 
 
 
 def load_data_files(groups=False, precursors=False, species=False, Wangetal=False): 
-    """Function to load data needed for these functions to work."""
+    """Function to load data needed for all other functions to work.
+    
+    Author: 
+    -------
+        Dr. Jessica D. Haskins (jhaskins@alum.mit.edu) GitHub: @jhaskinsPhD
+    
+    Change Log: 
+    ----------
+        10/29/2021    JDH Created 
+    """
+
     path=os.path.dirname(__file__)
     if groups is True: 
         gpp= dict2df(savepath=path, filename='/IO_data/Functional_Group_SMARTs', parse_chars=False, reverse=True)
@@ -664,7 +726,8 @@ def load_data_files(groups=False, precursors=False, species=False, Wangetal=Fals
             precs= dict2df(savepath=path, filename='/IO_Data/MCM_precursors', reverse=True,split_on_comma=True)
             return precs 
         else:
-            df_in=pd.read_excel(path+'/IO_Data/MCM_precursors.xlsx', engine='openpyxl',index_col=0)
+            df_in=pd.read_excel(path+'/IO_Data/MCM_precursors.xlsx', engine='openpyxl',index_col=0).fillna('')
+
             species=list(df_in['MCM_Name'])
             species.sort()
             return species
