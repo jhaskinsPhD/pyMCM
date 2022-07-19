@@ -2,17 +2,19 @@
 """
 Created on Tue Jul 19 13:36:09 2022
 
-@author: jhask
+@author: Dr. Jessica D. Haskins  
+Email: jhaskins@alum.mit.edu 
+Github: @jhaskinsPhd
 """
-
 import numpy as np 
 import pandas as pd 
-import sys 
-
-from set_my_paths import add_to_path
-add_to_path(sys.path, ['MCM_web_scraper', 'F0AM_mech_IO'])
 from pyMCM_utils import get_split_add
 from F0AM_mech_IO import read_F0AM_mech 
+
+# # Example Usage (For adding PAN as a precursor!):
+# precfile='C:/Users/jhask/OneDrive/Documents/Python/pyMCM/IO_data/MCM_Precursors.xlsx'
+# mechfile='C:/Users/jhask/OneDrive/Documents/MATLAB/F0AM/Chem/MCMv331/MCMv331_AllRxns.m'
+# new_precs= add_a_precursor('PAN', precfile, mechfile)
 
 
 def add_a_precursor(precursor, precfile, mechfile): 
@@ -81,6 +83,7 @@ def add_a_precursor(precursor, precfile, mechfile):
     
     return prec_df
 
+
 def nD_list2_nparray(lst):
     """Convert a ND list of variable len to an NP array)."""
     # Calculate length of maximal list
@@ -93,6 +96,7 @@ def nD_list2_nparray(lst):
     lst_arr = np.array(lst_2)
 
     return lst_arr
+
 
 def cascade_mech(target: str , rct, prd, ignore: list = [], reverse:bool =False):
     """Find ALL speces that come from target, excluding those in ignore.
@@ -164,12 +168,6 @@ def cascade_mech(target: str , rct, prd, ignore: list = [], reverse:bool =False)
         
     return all_mech
 
-
-
-precfile='C:/Users/jhask/OneDrive/Documents/Python/pyMCM/IO_data/MCM_Precursors.xlsx'
-mechfile='C:/Users/jhask/OneDrive/Documents/MATLAB/F0AM/Chem/MCMv331/MCMv331_AllRxns.m'
-
-new_precs= add_a_precursor('PAN', precfile, mechfile)
 
 
 
